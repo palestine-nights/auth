@@ -1,0 +1,91 @@
+# CircleCI configuration file for Go project.
+# @author - Ali Shanaakh.
+#
+
+version: 2
+jobs:
+  test:
+    docker:
+      - image: circleci/golang:1.11
+        environment:
+          DATABASE_USER: root
+          DATABASE_PASSWORD: circleci
+          DATABASE_NAME: circleci
+          DATABASE_PORT: 3306
+          DATABASE_HOST: localhost
+      - image: circleci/mysql
+        environment:
+          MYSQL_ROOT_PASSWORD: circleci
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: circleci
+    working_directory: /go/src/github.com/palestine-nights/auth
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-pkg-cache
+
+      - run:
+          name: Install dependencies
+          command: "go get ./..."
+
+      - save_cache:
+          key: v1-pkg-cache
+          paths:
+            - "/go/pkg"
+
+      - run:
+          name: Install dockerize
+          command: wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+          environment:
+            DOCKERIZE_VERSION: v0.6.1
+
+      - run:
+          name: Wait for database
+          command: "dockerize -wait tcp://localhost:3306 -timeout 1m"
+
+    # - run:
+    #     name: Run unit tests
+    #     command: "go test ./..."
+
+      - run:
+          name: Lint code
+          command: |
+            go get -u golang.org/x/lint/golint
+            golint -set_exit_status $(go list ./...)
+
+      - run:
+          name: Compile source code
+          command: "go build src/*.go"
+  push:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Login in Dockerhub
+          command: |
+            docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - run:
+          name: Build docker image
+          command: |
+            docker build -t palestinenights/auth:$CIRCLE_BRANCH .
+            docker build -t palestinenights/auth:$(echo $CIRCLE_SHA1 | cut -c -7) .
+            docker build -t palestinenights/auth .
+      - run:
+          name: Push docker images
+          command: |
+            docker push palestinenights/auth:$CIRCLE_BRANCH
+            docker push palestinenights/auth:$(echo $CIRCLE_SHA1 | cut -c -7)
+            docker push palestinenights/auth
+
+workflows:
+  version: 2
+  test-build:
+    jobs:
+      - test
+      - push:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
