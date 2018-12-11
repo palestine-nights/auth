@@ -11,7 +11,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // Import MYSQL.
 	"github.com/jmoiron/sqlx"
 	"github.com/palestine-nights/auth/src/db"
 )
