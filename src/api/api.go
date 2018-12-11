@@ -2,8 +2,10 @@ package api
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -12,7 +14,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/palestine-nights/auth/src/db"
-	"github.com/palestine-nights/auth/src/tools"
 )
 
 // GenericError error model.
@@ -36,7 +37,7 @@ type Server struct {
 // swagger:model
 type Token struct {
 	// JWT Token.
-	Token string
+	Token string `json:"token"`
 }
 
 /// swagger:route GET /auth menu listMenu
@@ -46,6 +47,7 @@ type Token struct {
 ///   200: Token
 func (server *Server) authenticate(c *gin.Context) {
 	requestedUser := db.User{}
+
 	if err := c.BindJSON(&requestedUser); err != nil {
 		c.JSON(http.StatusBadRequest, GenericError{Error: "Invalid request payload"})
 		return
@@ -67,8 +69,16 @@ func (server *Server) authenticate(c *gin.Context) {
 	claims["admin"] = true
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
-	// Get signing key.
-	privateKey := []byte(tools.GetEnv("RSA_PRIVATE_KEY", ""))
+	// RSA_PRIVATE_KEY - environment variable responsible for JWT private key.
+	EncPrivateKey := os.Getenv("RSA_PRIVATE_KEY")
+
+	privateKey, err := base64.StdEncoding.DecodeString(EncPrivateKey)
+
+	if err != nil {
+		gin.DefaultErrorWriter.Write([]byte(err.Error()))
+		c.JSON(http.StatusInternalServerError, GenericError{Error: "Something went wrong"})
+		return
+	}
 
 	signingKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKey)
 
@@ -87,6 +97,7 @@ func (server *Server) authenticate(c *gin.Context) {
 	}
 }
 
+// GetServer returns newly created Server{} object.
 func GetServer(user, password, database, host, port string) *Server {
 	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, password, host, port, database)
 
@@ -96,20 +107,8 @@ func GetServer(user, password, database, host, port string) *Server {
 	router.Use(cors.Default())
 	server := Server{Router: router, DB: DB}
 
-	server.initializeRouter()
+	server.Router.StaticFile("/", "./html/home.html")
+	server.Router.POST("/auth", server.authenticate)
 
 	return &server
-}
-
-func (server *Server) ListenAndServe() {
-	server.Router.Run()
-}
-
-func (server *Server) initializeRouter() {
-	server.Router.StaticFile("/", "./html/home.html")
-
-	authRouter := server.Router.Group("/auth")
-	{
-		authRouter.POST("", server.authenticate)
-	}
 }

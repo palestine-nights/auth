@@ -1,3 +1,15 @@
+### /auth
+---
+##### ***GET***
+**Summary:** Authenticate user with valid.
+
+**Responses**
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Token | [Token](#token) |
+| 500 | GenericError | [GenericError](#genericerror) |
+
 ### Models
 ---
 
@@ -11,7 +23,7 @@
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| Token | string | JWT Token. | No |
+| token | string | JWT Token. | No |
 
 ### User  
 

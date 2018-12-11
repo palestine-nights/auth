@@ -20,5 +20,5 @@ func main() {
 		databasePort,
 	)
 
-	server.ListenAndServe()
+	server.Router.Run()
 }
