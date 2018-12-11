@@ -66,7 +66,7 @@ func (server *Server) authenticate(c *gin.Context) {
 
 	claims["authorized"] = true
 	claims["username"] = user.UserName
-	claims["admin"] = true
+	claims["role"] = "admin"
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
 	// RSA_PRIVATE_KEY - environment variable responsible for JWT private key.
